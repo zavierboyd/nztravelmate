@@ -32,7 +32,7 @@
             </div>
             <div class="tile is-child is-vertical ">
                 <p class="subtitle">Final Converted Total </p>
-                <input class="input output" disabled type="text" name="toVal" id="toVal">
+                <input class="input" type="text" name="toVal" value="0" id="toVal">
             </div>
         </div>
         <div class="tile is-parent is-vertical">
@@ -42,7 +42,14 @@
                     <select name="fromCur" id="fromCur" style="height: min-content; width: 100%"></select>
                 </div>
             </div>
-            <div class="tile is-vertical "></div>
+            <div class="tile is-vertical is-child">
+                <p class="subtitle">User Profile: </p>
+                <div class="select">
+                    <select name="userProfile" id="userProfile" style="height: min-content; width: 100%">
+                        <option value="Z-AddUser">Save As New User</option>
+                    </select>
+                </div>
+            </div>
             <div class="tile is-vertical"></div>
         </div>
         <div class="tile is-parent is-vertical">
@@ -53,9 +60,13 @@
                     <select name="toCur" id="toCur" style="height: min-content; width: 100%"></select>
                 </div>
             </div>
-            <div class="tile is-vertical"></div>
+            <div class="tile is-vertical is-child">
+                <p class="subtitle">To: </p>
+                <a class="button" id="saveUser">Save User</a>
+            </div>
             <div class="tile is-vertical"></div>
         </div>
+
     </div>
 
 
