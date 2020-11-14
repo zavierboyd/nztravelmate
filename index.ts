@@ -1,3 +1,5 @@
+// Setup Constants for the program
+
 const fromCurSelect = document.getElementById('fromCur') as HTMLSelectElement
 const toCurSelect = document.getElementById('toCur') as HTMLSelectElement
 const fromValInput = document.getElementById('fromVal') as HTMLInputElement
@@ -77,14 +79,119 @@ const defaultConvertData: ConvertDataI = {
     }
 }
 
+// Initialise Global Variables
+
 let savedata: SaveData;
+
+
+
+// User Profile Utility Functions
 
 function updateUserSettings(user: string, to: Currency, from: Currency, savedata: SaveData): void {
     savedata.users[user] = { to, from }
 }
 
-function getUserSettings(user: string, savedata: SaveData): { to: Currency, from: Currency } {
+function getUserSettings(user: string, savedata: SaveData): UserProfileI {
     return savedata.users[user]
+}
+
+function updateUserSelectOptions(userProfileSelect: HTMLSelectElement, savedata: SaveData): void {
+    const usersShown = getShownUsers(userProfileSelect)
+    const users: string[] = Object.keys(savedata.users)
+
+    const usersToShow = users.filter((user) => {
+        return !usersShown.includes(user)
+    }) // List of users that are not yet shown but do exist 
+
+
+    const usersToHide = usersShown.filter((user) => {
+        return !users.includes(user)
+    }) // List of users that were shown but are now non existant
+
+    // Add options for users not currently shown
+    for (let userProfile of usersToShow) {
+        const user = document.createElement('option')
+        user.value = userProfile
+        user.text = userProfile
+        userProfileSelect.appendChild(user)
+    }
+
+    // Remove options for users that no longer exist
+    for (let userProfile of usersToHide) {
+        const idx = usersShown.indexOf(userProfile)
+        userProfileSelect.options.remove(idx)
+    }
+}
+
+function getShownUsers(userProfileSelect: HTMLSelectElement): string[] {
+    return Object.values(userProfileSelect.options).map((option: HTMLOptionElement) => { return option.value })
+}
+
+
+// Conversion and Tax Utility Functions
+
+function addSalesTax(amount: number, tax: number): number {
+    return amount + amount * tax
+}
+
+function convert(from: Currency, to: Currency, value: number): number {
+    return roundTo(value * savedata.rates.rates[to] / savedata.rates.rates[from], 2)
+}
+
+function populateCurrencyOptions(selectElement: HTMLSelectElement, savedata: SaveData): void {
+    for (let currency of Object.keys(savedata.rates.rates)) {
+        const option = document.createElement('option')
+        option.value = currency
+        option.text = currency
+        selectElement.appendChild(option)
+    }
+}
+
+
+
+// Time Utility Functions
+
+function getCurrentEpoch(): number {
+    return Math.round(new Date().getTime() / 1000)
+}
+
+
+// API Request Funtions
+
+async function getRates(): Promise<ConvertDataI | null> {
+    try { // If the request fails return null
+        return await (await fetch('https://open.exchangerate-api.com/v6/latest')).json()
+    } catch (err) {
+        return null
+    }
+}
+
+async function updateRates(data: ConvertDataI): Promise<void> {
+    const results = await getRates()
+    if (results !== null) { // Update results if possible
+        data = results
+    }
+}
+
+
+// Math Utility Functions
+
+function roundTo(value: number, decimalPlaces: number) {
+    const offset = 10 ** decimalPlaces
+    // Moves the decimal point back <decimalPlaces> 
+    // rounds the value 
+    // then moves the decimal point to where it was originally
+
+    // Number.EPSILON is added so that values like 1.005 are correctly rounded to 1.01 instead of 1
+    return Math.round((value + Number.EPSILON) * offset) / offset
+}
+
+
+
+// HTML Interactivity Functions
+
+function saveData(): void {
+    window.localStorage.setItem(savepoint, JSON.stringify(savedata))
 }
 
 function saveUser(): void {
@@ -96,33 +203,6 @@ function saveUser(): void {
     saveData()
 }
 
-function saveData(): void {
-    window.localStorage.setItem(savepoint, JSON.stringify(savedata))
-}
-
-function updateUserSelectOptions(userProfileSelect: HTMLSelectElement, savedata: SaveData): void {
-    const usersShown = getShownUsers(userProfileSelect)
-    const users: string[] = Object.keys(savedata.users)
-    const usersToShow = users.filter((user) => { return !usersShown.includes(user) })
-    const usersToHide = usersShown.filter((user) => { return !users.includes(user) })
-    // Show users not shown
-    for (let userProfile of usersToShow) {
-        const user = document.createElement('option')
-        user.value = userProfile
-        user.text = userProfile
-        userProfileSelect.appendChild(user)
-    }
-    // Hide non existant users
-    for (let userProfile of usersToHide) {
-        const idx = usersShown.indexOf(userProfile)
-        userProfileSelect.options.remove(idx)
-    }
-}
-
-function getShownUsers(userProfileSelect: HTMLSelectElement): string[] {
-    return Object.values(userProfileSelect.options).map((option: HTMLOptionElement) => { return option.value })
-}
-
 function loadUser(): void {
     const user = userProfileSelect.value
     const { to, from } = getUserSettings(user, savedata)
@@ -132,6 +212,7 @@ function loadUser(): void {
 
 function deleteUser(): void {
     const user = userProfileSelect.value
+    // Stop delete if there is only one user left
     if (Object.keys(savedata.users).length > 1) {
         delete savedata.users[user]
         if (savedata.defaultUser == user) {
@@ -152,6 +233,7 @@ function addNewUser(): void {
     const from = fromCurSelect.value as Currency
     let newUser: string | null = "";
     const currentUsers = Object.keys(savedata.users)
+    // Enter a new username that is not already used
     while (newUser == "" || currentUsers.includes(newUser)) {
         newUser = window.prompt('Enter new user name: ')
         if (!newUser) {
@@ -170,6 +252,18 @@ function setDefaultUser(): void {
     savedata.defaultUser = user
     saveData()
 }
+
+function convertAmount(): void {
+    const fromCur = fromCurSelect.value as Currency
+    const toCur = toCurSelect.value as Currency
+    const tax = Number.parseFloat(salesTaxInput.value) / 100 || 0 // convert percentage to decimal. If there is no value, tax = 0
+    const amount = Number.parseFloat(fromValInput.value) || 0     // If there is no value, amount = 0
+    const nonConvertedTotalAmount = addSalesTax(amount, tax)
+    toValInput.value = convert(fromCur, toCur, nonConvertedTotalAmount).toString() // write total to output
+}
+
+
+// Startup Program
 
 async function setup(): Promise<void> {
     try {
@@ -193,32 +287,24 @@ async function setup(): Promise<void> {
             updateRates(savedata.rates)
         }
 
-        window.localStorage[savepoint] = JSON.stringify(savedata)
+        saveData()
+
+
+        // Populate and initialise HTML Elements
 
         fromCurSelect.innerHTML = ""
         toCurSelect.innerHTML = ""
+        userProfileSelect.innerHTML = ""
 
-        for (let currency of Object.keys(savedata.rates.rates)) {
-            const option1 = document.createElement('option')
-            option1.value = currency
-            option1.text = currency
-            const option2 = document.createElement('option')
-            option2.value = currency
-            option2.text = currency
-            fromCurSelect.appendChild(option1)
-            toCurSelect.appendChild(option2)
-        }
-
-        for (let userProfile of Object.keys(savedata.users)) {
-            const user = document.createElement('option')
-            user.value = userProfile
-            user.text = userProfile
-            userProfileSelect.appendChild(user)
-        }
+        populateCurrencyOptions(fromCurSelect, savedata)
+        populateCurrencyOptions(toCurSelect, savedata)
+        updateUserSelectOptions(userProfileSelect, savedata)
 
         userProfileSelect.value = savedata.defaultUser
         fromCurSelect.value = savedata.users[savedata.defaultUser].from
         toCurSelect.value = savedata.users[savedata.defaultUser].to
+
+        // Setup HTML interactivity
 
         fromCurSelect.addEventListener("change", convertAmount)
         fromValInput.addEventListener("input", convertAmount)
@@ -236,71 +322,11 @@ async function setup(): Promise<void> {
     }
 }
 
-function convertAmount(): void {
-    const fromCur = fromCurSelect.value as Currency
-    const toCur = toCurSelect.value as Currency
-    const tax = Number.parseFloat(salesTaxInput.value) / 100 || 0 // convert percentage to decimal
-    const value = Number.parseFloat(fromValInput.value) || 0
-    const nonConvertedTotalAmount = addSalesTax(value, tax)
-    toValInput.value = convert(fromCur, toCur, nonConvertedTotalAmount).toString()
-}
-
-function addSalesTax(amount: number, tax: number): number {
-    return amount + amount * tax
-}
-
-function convert(from: Currency, to: Currency, value: number): number {
-    return roundTo(value * savedata.rates.rates[to] / savedata.rates.rates[from], 2)
-}
-
-function getCurrentEpoch(): number {
-    return Math.round(new Date().getTime() / 1000)
-}
-
-async function getRates(): Promise<ConvertDataI | null> {
-    try {
-        return await (await fetch('https://open.exchangerate-api.com/v6/latest')).json()
-    } catch (err) {
-        return null
-    }
-}
-
-async function updateRates(data: ConvertDataI): Promise<void> {
-    const results = await getRates()
-    if (results !== null) {
-        data = results
-    } else {
-        // Notify user that conversion rates have not been updated since ...
-    }
-}
-
-/**
- * 
- * @param value is any number
- * @param decimalPlaces should be a positive integer i.e 0, 1, 2, ...
- * 
- * 
- * rounds the value passed to the number of decimal places. 
- * Examples:
- * roundTo(1.001, 2) -> 1, roundTo(1.006, 2) -> 1.01, roundTo(1.005, 2) -> 1.01
- */
-function roundTo(value: number, decimalPlaces: number) {
-    const offset = 10 ** decimalPlaces
-    // Moves the decimal point back <decimalPlaces> 
-    // rounds the value 
-    // then Moves the decimal point to where it was originally
-
-    // Number.EPSILON is added so that values like 1.005 are correctly rounded to 1.01 instead of 1
-    return Math.round((value + Number.EPSILON) * offset) / offset
-}
-
-
-
-
 setup()
 
 
 
+// Types
 
 // https://open.exchangerate-api.com/v6/latest
 interface ConvertDataI {

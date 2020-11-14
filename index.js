@@ -1,4 +1,5 @@
 "use strict";
+// Setup Constants for the program
 const fromCurSelect = document.getElementById('fromCur');
 const toCurSelect = document.getElementById('toCur');
 const fromValInput = document.getElementById('fromVal');
@@ -75,12 +76,86 @@ const defaultConvertData = {
         ZAR: 15.62
     }
 };
+// Initialise Global Variables
 let savedata;
+// User Profile Utility Functions
 function updateUserSettings(user, to, from, savedata) {
     savedata.users[user] = { to, from };
 }
 function getUserSettings(user, savedata) {
     return savedata.users[user];
+}
+function updateUserSelectOptions(userProfileSelect, savedata) {
+    const usersShown = getShownUsers(userProfileSelect);
+    const users = Object.keys(savedata.users);
+    const usersToShow = users.filter((user) => {
+        return !usersShown.includes(user);
+    }); // List of users that are not yet shown but do exist 
+    const usersToHide = usersShown.filter((user) => {
+        return !users.includes(user);
+    }); // List of users that were shown but are now non existant
+    // Add options for users not currently shown
+    for (let userProfile of usersToShow) {
+        const user = document.createElement('option');
+        user.value = userProfile;
+        user.text = userProfile;
+        userProfileSelect.appendChild(user);
+    }
+    // Remove options for users that no longer exist
+    for (let userProfile of usersToHide) {
+        const idx = usersShown.indexOf(userProfile);
+        userProfileSelect.options.remove(idx);
+    }
+}
+function getShownUsers(userProfileSelect) {
+    return Object.values(userProfileSelect.options).map((option) => { return option.value; });
+}
+// Conversion and Tax Utility Functions
+function addSalesTax(amount, tax) {
+    return amount + amount * tax;
+}
+function convert(from, to, value) {
+    return roundTo(value * savedata.rates.rates[to] / savedata.rates.rates[from], 2);
+}
+function populateCurrencyOptions(selectElement, savedata) {
+    for (let currency of Object.keys(savedata.rates.rates)) {
+        const option = document.createElement('option');
+        option.value = currency;
+        option.text = currency;
+        selectElement.appendChild(option);
+    }
+}
+// Time Utility Functions
+function getCurrentEpoch() {
+    return Math.round(new Date().getTime() / 1000);
+}
+// API Request Funtions
+async function getRates() {
+    try { // If the request fails return null
+        return await (await fetch('https://open.exchangerate-api.com/v6/latest')).json();
+    }
+    catch (err) {
+        return null;
+    }
+}
+async function updateRates(data) {
+    const results = await getRates();
+    if (results !== null) { // Update results if possible
+        data = results;
+    }
+}
+// Math Utility Functions
+function roundTo(value, decimalPlaces) {
+    const offset = 10 ** decimalPlaces;
+    // Moves the decimal point back <decimalPlaces> 
+    // rounds the value 
+    // then moves the decimal point to where it was originally
+    // Number.EPSILON is added so that values like 1.005 are correctly rounded to 1.01 instead of 1
+    return Math.round((value + Number.EPSILON) * offset) / offset;
+}
+// HTML Interactivity Functions
+function saveData() {
+    window.localStorage.setItem(savepoint, JSON.stringify(savedata));
 }
 function saveUser() {
     const to = toCurSelect.value;
@@ -90,30 +165,6 @@ function saveUser() {
     updateUserSelectOptions(userProfileSelect, savedata);
     saveData();
 }
-function saveData() {
-    window.localStorage.setItem(savepoint, JSON.stringify(savedata));
-}
-function updateUserSelectOptions(userProfileSelect, savedata) {
-    const usersShown = getShownUsers(userProfileSelect);
-    const users = Object.keys(savedata.users);
-    const usersToShow = users.filter((user) => { return !usersShown.includes(user); });
-    const usersToHide = usersShown.filter((user) => { return !users.includes(user); });
-    // Show users not shown
-    for (let userProfile of usersToShow) {
-        const user = document.createElement('option');
-        user.value = userProfile;
-        user.text = userProfile;
-        userProfileSelect.appendChild(user);
-    }
-    // Hide non existant users
-    for (let userProfile of usersToHide) {
-        const idx = usersShown.indexOf(userProfile);
-        userProfileSelect.options.remove(idx);
-    }
-}
-function getShownUsers(userProfileSelect) {
-    return Object.values(userProfileSelect.options).map((option) => { return option.value; });
-}
 function loadUser() {
     const user = userProfileSelect.value;
     const { to, from } = getUserSettings(user, savedata);
@@ -122,6 +173,7 @@ function loadUser() {
 }
 function deleteUser() {
     const user = userProfileSelect.value;
+    // Stop delete if there is only one user left
     if (Object.keys(savedata.users).length > 1) {
         delete savedata.users[user];
         if (savedata.defaultUser == user) {
@@ -141,6 +193,7 @@ function addNewUser() {
     const from = fromCurSelect.value;
     let newUser = "";
     const currentUsers = Object.keys(savedata.users);
+    // Enter a new username that is not already used
     while (newUser == "" || currentUsers.includes(newUser)) {
         newUser = window.prompt('Enter new user name: ');
         if (!newUser) {
@@ -158,6 +211,15 @@ function setDefaultUser() {
     savedata.defaultUser = user;
     saveData();
 }
+function convertAmount() {
+    const fromCur = fromCurSelect.value;
+    const toCur = toCurSelect.value;
+    const tax = Number.parseFloat(salesTaxInput.value) / 100 || 0; // convert percentage to decimal. If there is no value, tax = 0
+    const amount = Number.parseFloat(fromValInput.value) || 0; // If there is no value, amount = 0
+    const nonConvertedTotalAmount = addSalesTax(amount, tax);
+    toValInput.value = convert(fromCur, toCur, nonConvertedTotalAmount).toString(); // write total to output
+}
+// Startup Program
 async function setup() {
     try {
         const savejson = window.localStorage.getItem(savepoint);
@@ -180,28 +242,18 @@ async function setup() {
             };
             updateRates(savedata.rates);
         }
-        window.localStorage[savepoint] = JSON.stringify(savedata);
+        saveData();
+        // Populate and initialise HTML Elements
         fromCurSelect.innerHTML = "";
         toCurSelect.innerHTML = "";
-        for (let currency of Object.keys(savedata.rates.rates)) {
-            const option1 = document.createElement('option');
-            option1.value = currency;
-            option1.text = currency;
-            const option2 = document.createElement('option');
-            option2.value = currency;
-            option2.text = currency;
-            fromCurSelect.appendChild(option1);
-            toCurSelect.appendChild(option2);
-        }
-        for (let userProfile of Object.keys(savedata.users)) {
-            const user = document.createElement('option');
-            user.value = userProfile;
-            user.text = userProfile;
-            userProfileSelect.appendChild(user);
-        }
+        userProfileSelect.innerHTML = "";
+        populateCurrencyOptions(fromCurSelect, savedata);
+        populateCurrencyOptions(toCurSelect, savedata);
+        updateUserSelectOptions(userProfileSelect, savedata);
         userProfileSelect.value = savedata.defaultUser;
         fromCurSelect.value = savedata.users[savedata.defaultUser].from;
         toCurSelect.value = savedata.users[savedata.defaultUser].to;
+        // Setup HTML interactivity
         fromCurSelect.addEventListener("change", convertAmount);
         fromValInput.addEventListener("input", convertAmount);
         toCurSelect.addEventListener("change", convertAmount);
@@ -217,57 +269,5 @@ async function setup() {
         window.localStorage.removeItem(savepoint);
         setup();
     }
-}
-function convertAmount() {
-    const fromCur = fromCurSelect.value;
-    const toCur = toCurSelect.value;
-    const tax = Number.parseFloat(salesTaxInput.value) / 100 || 0; // convert percentage to decimal
-    const value = Number.parseFloat(fromValInput.value) || 0;
-    const nonConvertedTotalAmount = addSalesTax(value, tax);
-    toValInput.value = convert(fromCur, toCur, nonConvertedTotalAmount).toString();
-}
-function addSalesTax(amount, tax) {
-    return amount + amount * tax;
-}
-function convert(from, to, value) {
-    return roundTo(value * savedata.rates.rates[to] / savedata.rates.rates[from], 2);
-}
-function getCurrentEpoch() {
-    return Math.round(new Date().getTime() / 1000);
-}
-async function getRates() {
-    try {
-        return await (await fetch('https://open.exchangerate-api.com/v6/latest')).json();
-    }
-    catch (err) {
-        return null;
-    }
-}
-async function updateRates(data) {
-    const results = await getRates();
-    if (results !== null) {
-        data = results;
-    }
-    else {
-        // Notify user that conversion rates have not been updated since ...
-    }
-}
-/**
- *
- * @param value is any number
- * @param decimalPlaces should be a positive integer i.e 0, 1, 2, ...
- *
- *
- * rounds the value passed to the number of decimal places.
- * Examples:
- * roundTo(1.001, 2) -> 1, roundTo(1.006, 2) -> 1.01, roundTo(1.005, 2) -> 1.01
- */
-function roundTo(value, decimalPlaces) {
-    const offset = 10 ** decimalPlaces;
-    // Moves the decimal point back <decimalPlaces> 
-    // rounds the value 
-    // then Moves the decimal point to where it was originally
-    // Number.EPSILON is added so that values like 1.005 are correctly rounded to 1.01 instead of 1
-    return Math.round((value + Number.EPSILON) * offset) / offset;
 }
 setup();
