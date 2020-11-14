@@ -5,6 +5,9 @@ const fromValInput = document.getElementById('fromVal');
 const toValInput = document.getElementById('toVal');
 const salesTaxInput = document.getElementById('salesTax');
 const saveUserButton = document.getElementById('saveUser');
+const deleteUserButton = document.getElementById('deleteUser');
+const setDefaultUserButton = document.getElementById('defaultUser');
+const addNewUserButton = document.getElementById('addNewUser');
 const userProfileSelect = document.getElementById('userProfile');
 const savepoint = 'conversion-save-1605044723';
 const defaultConvertData = {
@@ -72,16 +75,8 @@ const defaultConvertData = {
         ZAR: 15.62
     }
 };
-const addUserSignal = "Z-AddUser";
 let savedata;
 function updateUserSettings(user, to, from, savedata) {
-    if (user == addUserSignal) {
-        let newUser = null;
-        while (!newUser) {
-            newUser = window.prompt('Enter new user name: ');
-        }
-        user = newUser;
-    }
     savedata.users[user] = { to, from };
 }
 function getUserSettings(user, savedata) {
@@ -90,34 +85,78 @@ function getUserSettings(user, savedata) {
 function saveUser() {
     const to = toCurSelect.value;
     const from = fromCurSelect.value;
-    const user = userProfileSelect.value;
+    let user = userProfileSelect.value;
     updateUserSettings(user, to, from, savedata);
-    updateUserSelectOptions(savedata);
-    window.localStorage[savepoint] = JSON.stringify(savedata);
+    updateUserSelectOptions(userProfileSelect, savedata);
+    saveData();
 }
-function updateUserSelectOptions(savedata) {
-    const users = getDefinedUsers();
-    const usersNotShown = Object.keys(savedata.users).filter((user) => { return !users.includes(user); });
-    for (let userProfile of usersNotShown) {
+function saveData() {
+    window.localStorage.setItem(savepoint, JSON.stringify(savedata));
+}
+function updateUserSelectOptions(userProfileSelect, savedata) {
+    const usersShown = getShownUsers(userProfileSelect);
+    const users = Object.keys(savedata.users);
+    const usersToShow = users.filter((user) => { return !usersShown.includes(user); });
+    const usersToHide = usersShown.filter((user) => { return !users.includes(user); });
+    // Show users not shown
+    for (let userProfile of usersToShow) {
         const user = document.createElement('option');
         user.value = userProfile;
         user.text = userProfile;
         userProfileSelect.appendChild(user);
     }
+    // Hide non existant users
+    for (let userProfile of usersToHide) {
+        const idx = usersShown.indexOf(userProfile);
+        userProfileSelect.options.remove(idx);
+    }
 }
-function getDefinedUsers() {
-    return Object.values(userProfileSelect.options).splice(1).map((option) => { return option.value; });
+function getShownUsers(userProfileSelect) {
+    return Object.values(userProfileSelect.options).map((option) => { return option.value; });
 }
 function loadUser() {
     const user = userProfileSelect.value;
-    if (user == addUserSignal) {
-        saveUser();
+    const { to, from } = getUserSettings(user, savedata);
+    toCurSelect.value = to;
+    fromCurSelect.value = from;
+}
+function deleteUser() {
+    const user = userProfileSelect.value;
+    if (Object.keys(savedata.users).length > 1) {
+        delete savedata.users[user];
+        if (savedata.defaultUser == user) {
+            savedata.defaultUser = Object.keys(savedata.users)[0];
+        }
+        updateUserSelectOptions(userProfileSelect, savedata);
+        saveData();
+        userProfileSelect.value = savedata.defaultUser;
+        loadUser();
     }
     else {
-        const { to, from } = getUserSettings(user, savedata);
-        toCurSelect.value = to;
-        fromCurSelect.value = from;
+        alert("You can not delete the last user");
     }
+}
+function addNewUser() {
+    const to = toCurSelect.value;
+    const from = fromCurSelect.value;
+    let newUser = "";
+    const currentUsers = Object.keys(savedata.users);
+    while (newUser == "" || currentUsers.includes(newUser)) {
+        newUser = window.prompt('Enter new user name: ');
+        if (!newUser) {
+            // End function, No new user created
+            return;
+        }
+    }
+    updateUserSettings(newUser, to, from, savedata);
+    updateUserSelectOptions(userProfileSelect, savedata);
+    saveData();
+    userProfileSelect.value = newUser;
+}
+function setDefaultUser() {
+    const user = userProfileSelect.value;
+    savedata.defaultUser = user;
+    saveData();
 }
 async function setup() {
     try {
@@ -170,6 +209,9 @@ async function setup() {
         userProfileSelect.addEventListener("change", loadUser);
         userProfileSelect.addEventListener("change", convertAmount);
         saveUserButton.addEventListener("click", saveUser);
+        deleteUserButton.addEventListener("click", deleteUser);
+        setDefaultUserButton.addEventListener("click", setDefaultUser);
+        addNewUserButton.addEventListener("click", addNewUser);
     }
     catch (_a) {
         window.localStorage.removeItem(savepoint);

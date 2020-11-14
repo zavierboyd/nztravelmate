@@ -3,7 +3,11 @@ const toCurSelect = document.getElementById('toCur') as HTMLSelectElement
 const fromValInput = document.getElementById('fromVal') as HTMLInputElement
 const toValInput = document.getElementById('toVal') as HTMLInputElement
 const salesTaxInput = document.getElementById('salesTax') as HTMLInputElement
+
 const saveUserButton = document.getElementById('saveUser') as HTMLButtonElement
+const deleteUserButton = document.getElementById('deleteUser') as HTMLButtonElement
+const setDefaultUserButton = document.getElementById('defaultUser') as HTMLButtonElement
+const addNewUserButton = document.getElementById('addNewUser') as HTMLButtonElement
 const userProfileSelect = document.getElementById('userProfile') as HTMLSelectElement
 
 const savepoint = 'conversion-save-1605044723'
@@ -72,19 +76,10 @@ const defaultConvertData: ConvertDataI = {
         ZAR: 15.62
     }
 }
-const addUserSignal = "Z-AddUser"
 
 let savedata: SaveData;
 
 function updateUserSettings(user: string, to: Currency, from: Currency, savedata: SaveData): void {
-    if (user == addUserSignal) {
-        let newUser: string | null = null;
-        while (!newUser) {
-            newUser = window.prompt('Enter new user name: ')
-        }
-        user = newUser
-
-    }
     savedata.users[user] = { to, from }
 }
 
@@ -92,44 +87,91 @@ function getUserSettings(user: string, savedata: SaveData): { to: Currency, from
     return savedata.users[user]
 }
 
-
-function saveUser() {
+function saveUser(): void {
     const to = toCurSelect.value as Currency
     const from = fromCurSelect.value as Currency
-    const user = userProfileSelect.value
+    let user = userProfileSelect.value
     updateUserSettings(user, to, from, savedata)
-    updateUserSelectOptions(savedata)
-    window.localStorage[savepoint] = JSON.stringify(savedata)
+    updateUserSelectOptions(userProfileSelect, savedata)
+    saveData()
 }
 
-function updateUserSelectOptions(savedata: SaveData) {
-    const users = getDefinedUsers()
-    const usersNotShown = Object.keys(savedata.users).filter((user) => { return !users.includes(user) })
-    for (let userProfile of usersNotShown) {
+function saveData(): void {
+    window.localStorage.setItem(savepoint, JSON.stringify(savedata))
+}
+
+function updateUserSelectOptions(userProfileSelect: HTMLSelectElement, savedata: SaveData): void {
+    const usersShown = getShownUsers(userProfileSelect)
+    const users: string[] = Object.keys(savedata.users)
+    const usersToShow = users.filter((user) => { return !usersShown.includes(user) })
+    const usersToHide = usersShown.filter((user) => { return !users.includes(user) })
+    // Show users not shown
+    for (let userProfile of usersToShow) {
         const user = document.createElement('option')
         user.value = userProfile
         user.text = userProfile
         userProfileSelect.appendChild(user)
     }
-}
-
-function getDefinedUsers(): string[] {
-    return Object.values(userProfileSelect.options).splice(1).map((option: HTMLOptionElement) => { return option.value })
-}
-
-function loadUser() {
-    const user = userProfileSelect.value
-    if (user == addUserSignal) {
-        saveUser()
-    } else {
-        const { to, from } = getUserSettings(user, savedata)
-        toCurSelect.value = to
-        fromCurSelect.value = from
+    // Hide non existant users
+    for (let userProfile of usersToHide) {
+        const idx = usersShown.indexOf(userProfile)
+        userProfileSelect.options.remove(idx)
     }
 }
 
+function getShownUsers(userProfileSelect: HTMLSelectElement): string[] {
+    return Object.values(userProfileSelect.options).map((option: HTMLOptionElement) => { return option.value })
+}
 
-async function setup() {
+function loadUser(): void {
+    const user = userProfileSelect.value
+    const { to, from } = getUserSettings(user, savedata)
+    toCurSelect.value = to
+    fromCurSelect.value = from
+}
+
+function deleteUser(): void {
+    const user = userProfileSelect.value
+    if (Object.keys(savedata.users).length > 1) {
+        delete savedata.users[user]
+        if (savedata.defaultUser == user) {
+            savedata.defaultUser = Object.keys(savedata.users)[0]
+        }
+        updateUserSelectOptions(userProfileSelect, savedata)
+
+        saveData()
+        userProfileSelect.value = savedata.defaultUser
+        loadUser()
+    } else {
+        alert("You can not delete the last user")
+    }
+}
+
+function addNewUser(): void {
+    const to = toCurSelect.value as Currency
+    const from = fromCurSelect.value as Currency
+    let newUser: string | null = "";
+    const currentUsers = Object.keys(savedata.users)
+    while (newUser == "" || currentUsers.includes(newUser)) {
+        newUser = window.prompt('Enter new user name: ')
+        if (!newUser) {
+            // End function, No new user created
+            return
+        }
+    }
+    updateUserSettings(newUser, to, from, savedata)
+    updateUserSelectOptions(userProfileSelect, savedata)
+    saveData()
+    userProfileSelect.value = newUser
+}
+
+function setDefaultUser(): void {
+    const user = userProfileSelect.value
+    savedata.defaultUser = user
+    saveData()
+}
+
+async function setup(): Promise<void> {
     try {
         const savejson = window.localStorage.getItem(savepoint)
         if (savejson) {
@@ -185,13 +227,16 @@ async function setup() {
         userProfileSelect.addEventListener("change", loadUser)
         userProfileSelect.addEventListener("change", convertAmount)
         saveUserButton.addEventListener("click", saveUser)
+        deleteUserButton.addEventListener("click", deleteUser)
+        setDefaultUserButton.addEventListener("click", setDefaultUser)
+        addNewUserButton.addEventListener("click", addNewUser)
     } catch {
         window.localStorage.removeItem(savepoint)
         setup()
     }
 }
 
-function convertAmount() {
+function convertAmount(): void {
     const fromCur = fromCurSelect.value as Currency
     const toCur = toCurSelect.value as Currency
     const tax = Number.parseFloat(salesTaxInput.value) / 100 || 0 // convert percentage to decimal
@@ -208,7 +253,7 @@ function convert(from: Currency, to: Currency, value: number): number {
     return roundTo(value * savedata.rates.rates[to] / savedata.rates.rates[from], 2)
 }
 
-function getCurrentEpoch() {
+function getCurrentEpoch(): number {
     return Math.round(new Date().getTime() / 1000)
 }
 
@@ -331,7 +376,7 @@ interface UserProfileI {
     from: Currency
 }
 
-type UserDict = { [idx: string]: UserProfileI }
+type UserDict = { [idx: string]: UserProfileI };
 
 interface SaveData {
     rates: ConvertDataI
