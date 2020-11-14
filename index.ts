@@ -267,9 +267,11 @@ function convertAmount(): void {
 
 async function setup(): Promise<void> {
     try {
+        // Loads data from localStorage
         const savejson = window.localStorage.getItem(savepoint)
         if (savejson) {
             savedata = JSON.parse(savejson)
+            // Update rates if update is available
             if (savedata.rates.time_next_update_unix <= getCurrentEpoch()) {
                 updateRates(savedata.rates)
             }
@@ -284,6 +286,7 @@ async function setup(): Promise<void> {
                 defaultUser: 'Default User',
                 rates: defaultConvertData
             }
+            // Try to update rates if possible
             updateRates(savedata.rates)
         }
 
@@ -303,6 +306,7 @@ async function setup(): Promise<void> {
         userProfileSelect.value = savedata.defaultUser
         fromCurSelect.value = savedata.users[savedata.defaultUser].from
         toCurSelect.value = savedata.users[savedata.defaultUser].to
+
 
         // Setup HTML interactivity
 
