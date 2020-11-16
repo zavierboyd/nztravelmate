@@ -12,6 +12,9 @@ const setDefaultUserButton = document.getElementById('defaultUser') as HTMLButto
 const addNewUserButton = document.getElementById('addNewUser') as HTMLButtonElement
 const userProfileSelect = document.getElementById('userProfile') as HTMLSelectElement
 
+const errorMsgDiv = document.getElementById("errorMsg") as HTMLDivElement
+const durationExpiredSpan = document.getElementById("duration") as HTMLSpanElement
+
 const savepoint = 'conversion-save-1605044723'
 const defaultConvertData: ConvertDataI = {
     result: 'success',
@@ -84,111 +87,7 @@ const defaultConvertData: ConvertDataI = {
 let savedata: SaveData;
 
 
-
-// User Profile Utility Functions
-
-function updateUserSettings(user: string, to: Currency, from: Currency, savedata: SaveData): void {
-    savedata.users[user] = { to, from }
-}
-
-function getUserSettings(user: string, savedata: SaveData): UserProfileI {
-    return savedata.users[user]
-}
-
-function updateUserSelectOptions(userProfileSelect: HTMLSelectElement, savedata: SaveData): void {
-    const usersShown = getShownUsers(userProfileSelect)
-    const users: string[] = Object.keys(savedata.users)
-
-    const usersToShow = users.filter((user) => {
-        return !usersShown.includes(user)
-    }) // List of users that are not yet shown but do exist 
-
-
-    const usersToHide = usersShown.filter((user) => {
-        return !users.includes(user)
-    }) // List of users that were shown but are now non existant
-
-    // Add options for users not currently shown
-    for (let userProfile of usersToShow) {
-        const user = document.createElement('option')
-        user.value = userProfile
-        user.text = userProfile
-        userProfileSelect.appendChild(user)
-    }
-
-    // Remove options for users that no longer exist
-    for (let userProfile of usersToHide) {
-        const idx = usersShown.indexOf(userProfile)
-        userProfileSelect.options.remove(idx)
-    }
-}
-
-function getShownUsers(userProfileSelect: HTMLSelectElement): string[] {
-    return Object.values(userProfileSelect.options).map((option: HTMLOptionElement) => { return option.value })
-}
-
-
-// Conversion and Tax Utility Functions
-
-function addSalesTax(amount: number, tax: number): number {
-    return amount + amount * tax
-}
-
-function convert(from: Currency, to: Currency, value: number): number {
-    return roundTo(value * savedata.rates.rates[to] / savedata.rates.rates[from], 2)
-}
-
-function populateCurrencyOptions(selectElement: HTMLSelectElement, savedata: SaveData): void {
-    for (let currency of Object.keys(savedata.rates.rates)) {
-        const option = document.createElement('option')
-        option.value = currency
-        option.text = currency
-        selectElement.appendChild(option)
-    }
-}
-
-
-
-// Time Utility Functions
-
-function getCurrentEpoch(): number {
-    return Math.round(new Date().getTime() / 1000)
-}
-
-
-// API Request Funtions
-
-async function getRates(): Promise<ConvertDataI | null> {
-    try { // If the request fails return null
-        return await (await fetch('https://open.exchangerate-api.com/v6/latest')).json()
-    } catch (err) {
-        return null
-    }
-}
-
-async function updateRates(data: ConvertDataI): Promise<void> {
-    const results = await getRates()
-    if (results !== null) { // Update results if possible
-        data = results
-    }
-}
-
-
-// Math Utility Functions
-
-function roundTo(value: number, decimalPlaces: number) {
-    const offset = 10 ** decimalPlaces
-    // Moves the decimal point back <decimalPlaces> 
-    // rounds the value 
-    // then moves the decimal point to where it was originally
-
-    // Number.EPSILON is added so that values like 1.005 are correctly rounded to 1.01 instead of 1
-    return Math.round((value + Number.EPSILON) * offset) / offset
-}
-
-
-
-// HTML Interactivity Functions
+// HTML Listeners
 
 function saveData(): void {
     window.localStorage.setItem(savepoint, JSON.stringify(savedata))
@@ -259,9 +158,17 @@ function convertAmount(): void {
     const tax = Number.parseFloat(salesTaxInput.value) / 100 || 0 // convert percentage to decimal. If there is no value, tax = 0
     const amount = Number.parseFloat(fromValInput.value) || 0     // If there is no value, amount = 0
     const nonConvertedTotalAmount = addSalesTax(amount, tax)
-    toValInput.value = convert(fromCur, toCur, nonConvertedTotalAmount).toString() // write total to output
+    toValInput.value = convert(fromCur, toCur, nonConvertedTotalAmount, savedata.rates).toString() // write total to output
 }
 
+function canNotUpdateWarning(): void {
+    const durationNotUpdatedSeconds = getCurrentEpoch() - savedata.rates.time_next_update_unix
+    const durationNotUpdatedDays = Math.floor(durationNotUpdatedSeconds / 60 / 60 / 24) // convert to days
+    if (durationNotUpdatedDays > 0) {
+        durationExpiredSpan.innerHTML = `${durationNotUpdatedDays} day${durationNotUpdatedDays > 1 ? 's' : ''}`
+        errorMsgDiv.classList.remove("is-hidden")
+    }
+}
 
 // Startup Program
 
@@ -273,7 +180,7 @@ async function setup(): Promise<void> {
             savedata = JSON.parse(savejson)
             // Update rates if update is available
             if (savedata.rates.time_next_update_unix <= getCurrentEpoch()) {
-                updateRates(savedata.rates)
+                updateRates(savedata.rates, canNotUpdateWarning)
             }
         } else {
             savedata = {
@@ -287,7 +194,7 @@ async function setup(): Promise<void> {
                 rates: defaultConvertData
             }
             // Try to update rates if possible
-            updateRates(savedata.rates)
+            updateRates(savedata.rates, canNotUpdateWarning)
         }
 
         saveData()
@@ -330,86 +237,3 @@ setup()
 
 
 
-// Types
-
-// https://open.exchangerate-api.com/v6/latest
-interface ConvertDataI {
-    "result": string,
-    "documentation": "https://www.exchangerate-api.com/docs/free",
-    "terms_of_use": "https://www.exchangerate-api.com/terms",
-    "time_last_update_unix": number,
-    "time_last_update_utc": string,
-    "time_next_update_unix": number,
-    "time_next_update_utc": string,
-    "time_eol_unix": number,
-    "base_code": string,
-    "rates": {
-        "USD": number,
-        "AED": number,
-        "ARS": number,
-        "AUD": number,
-        "BGN": number,
-        "BRL": number,
-        "BSD": number,
-        "CAD": number,
-        "CHF": number,
-        "CLP": number,
-        "CNY": number,
-        "COP": number,
-        "CZK": number,
-        "DKK": number,
-        "DOP": number,
-        "EGP": number,
-        "EUR": number,
-        "FJD": number,
-        "GBP": number,
-        "GTQ": number,
-        "HKD": number,
-        "HRK": number,
-        "HUF": number,
-        "IDR": number,
-        "ILS": number,
-        "INR": number,
-        "ISK": number,
-        "JPY": number,
-        "KRW": number,
-        "KZT": number,
-        "MVR": number,
-        "MXN": number,
-        "MYR": number,
-        "NOK": number,
-        "NZD": number,
-        "PAB": number,
-        "PEN": number,
-        "PHP": number,
-        "PKR": number,
-        "PLN": number,
-        "PYG": number,
-        "RON": number,
-        "RUB": number,
-        "SAR": number,
-        "SEK": number,
-        "SGD": number,
-        "THB": number,
-        "TRY": number,
-        "TWD": number,
-        "UAH": number,
-        "UYU": number,
-        "ZAR": number
-    }
-}
-
-type Currency = keyof ConvertDataI['rates']
-
-interface UserProfileI {
-    to: Currency
-    from: Currency
-}
-
-type UserDict = { [idx: string]: UserProfileI };
-
-interface SaveData {
-    rates: ConvertDataI
-    users: UserDict
-    defaultUser: string
-}
