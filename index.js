@@ -163,7 +163,8 @@ async function setupApp() {
             savedata = JSON.parse(savejson);
             // Update rates if update is available
             if (savedata.rates.time_next_update_unix <= getCurrentEpoch()) {
-                updateRates(savedata.rates, canNotUpdateWarning);
+                updateRates(savedata, canNotUpdateWarning).then(() => { console.log("gets to then"); saveData(); });
+                // After try update save current data state
             }
         }
         else {
@@ -178,9 +179,9 @@ async function setupApp() {
                 rates: defaultConvertData
             };
             // Try to update rates if possible
-            updateRates(savedata.rates, canNotUpdateWarning);
+            updateRates(savedata, canNotUpdateWarning).then(() => { console.log("gets to then"); saveData(); });
+            // After try update save current data state
         }
-        saveData();
         // Populate and initialise HTML Elements
         fromCurSelect.innerHTML = "";
         toCurSelect.innerHTML = "";

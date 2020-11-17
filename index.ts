@@ -180,7 +180,8 @@ async function setupApp(): Promise<void> {
             savedata = JSON.parse(savejson)
             // Update rates if update is available
             if (savedata.rates.time_next_update_unix <= getCurrentEpoch()) {
-                updateRates(savedata.rates, canNotUpdateWarning)
+                updateRates(savedata, canNotUpdateWarning).then(() => { console.log("gets to then"); saveData() })
+                // After try update save current data state
             }
         } else {
             savedata = {
@@ -194,10 +195,9 @@ async function setupApp(): Promise<void> {
                 rates: defaultConvertData
             }
             // Try to update rates if possible
-            updateRates(savedata.rates, canNotUpdateWarning)
+            updateRates(savedata, canNotUpdateWarning).then(() => { console.log("gets to then"); saveData() })
+            // After try update save current data state
         }
-
-        saveData()
 
 
         // Populate and initialise HTML Elements

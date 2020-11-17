@@ -65,7 +65,7 @@ async function getRates() {
 async function updateRates(dataPointer, errorHandler) {
     const results = await getRates();
     if (results !== null) { // Update results if possible
-        dataPointer = results;
+        dataPointer.rates = results;
     }
     else {
         errorHandler();

@@ -79,10 +79,10 @@ async function getRates(): Promise<ConvertDataI | null> {
     }
 }
 
-async function updateRates(dataPointer: ConvertDataI, errorHandler: VoidFunction): Promise<void> {
+async function updateRates(dataPointer: SaveData, errorHandler: VoidFunction): Promise<void> {
     const results = await getRates();
     if (results !== null) { // Update results if possible
-        dataPointer = results;
+        dataPointer.rates = results;
     } else {
         errorHandler();
     }

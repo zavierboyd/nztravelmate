@@ -268,15 +268,16 @@ describe('Exchange Rate API', function () {
     describe('Async Update Conversion Data', function () {
         it('should update the data asyncronosly when internet is on OR leave the data alone if off', async function () {
             const data = Object.assign({}, baseData)
-            await updateRates(data.rates, () => { data.rates.time_last_update_unix = 1 })
+            await updateRates(data, () => { data.rates.time_last_update_unix = 1 })
             if (window.navigator.onLine) {
                 assert.hasAllDeepKeys(data.rates, baseData.rates)
+                assert.notDeepEqual(data.rates, baseData.rates)
                 assert.notEqual(data.rates.time_last_update_unix, 1)
             }
         })
         it('should run the error function when the internet is off', async function () {
             const data = Object.assign({}, baseData)
-            await updateRates(data.rates, () => { data.rates.time_last_update_unix = 1 })
+            await updateRates(data, () => { data.rates.time_last_update_unix = 1 })
             if (window.navigator.onLine) {
                 assert.notEqual(data.rates.time_last_update_unix, 1)
             } else {
