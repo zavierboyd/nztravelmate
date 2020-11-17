@@ -2,7 +2,7 @@
 
 We use TypeScript and NodeJS to create this app.
 For testing we use the Mocha testing framework.
-You will need to run `npm install` to get all the proper type files.
+You will need to run `npm install --only=dev` to get all the proper type files.
 You will also need to run `npm install --global typescript` or `npm install --save-dev typescript` if you do not yet have typescript installed.
 
 ## Guidelines
@@ -12,6 +12,8 @@ Any stand alone function is to be put in utilities.ts
 
 All function and variables need to be Typed unless TypeScript can infer the correct type.
 All functions in utilities.ts need to be sorted into the correct group and have test cases to make sure their behaviors work.
+
+All functions should be self descriptive, but if there is some part of a function that does not make sense add a comment to explain it.
 
 ## Testing
 
@@ -63,3 +65,14 @@ rm font-awesome-all.js && wget --output-document='font-awesome-all.js' <url for 
 ```
 rm mocha.js chai.js && wget --output-document='mocha.js' https://unpkg.com/mocha/mocha.js && wget --output-document='mocha.css' https://unpkg.com/mocha/mocha.css && wget --output-document='chai.js' https://unpkg.com/chai/chai.js
 ```
+
+# Creating a New Release
+
+1. Make sure that bulma and font awesome are up to date.
+1. Make sure all tests pass
+1. Create a new branch called release `git checkout -b release`
+1. `git rm -rf *.ts *.json testing.* DevelopersREADME.md mocha.* chai.* .gitignore`
+1. `rm -rf node_modules .vscode`
+1. `git add -A && git commit -m "commit message here"`
+1. `git push`
+1. Message the main maintainer to have a look at the release
