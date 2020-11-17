@@ -32,8 +32,11 @@ function updateUserSelectOptions(userProfileSelect: HTMLSelectElement, savedata:
 
     // Remove options for users that no longer exist
     for (let userProfile of usersToHide) {
-        const idx = usersShown.indexOf(userProfile);
-        userProfileSelect.options.remove(idx);
+        for (let i = userProfileSelect.options.length - 1; i >= 0; i--) {
+            if (userProfileSelect.options[i].value == userProfile) {
+                userProfileSelect.options.remove(i);
+            }
+        }
     }
 }
 
@@ -81,7 +84,7 @@ async function updateRates(dataPointer: ConvertDataI, errorHandler: VoidFunction
     if (results !== null) { // Update results if possible
         dataPointer = results;
     } else {
-        return errorHandler();
+        errorHandler();
     }
 }
 

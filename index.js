@@ -1,6 +1,4 @@
 "use strict";
-// import { updateRates, updateUserSelectOptions, updateUserSettings, getUserSettings, addSalesTax, convert, getCurrentEpoch, populateCurrencyOptions } from './utilities'
-// import { ConvertDataI, SaveData, Currency } from './utilities'
 // Setup Constants for the program
 const fromCurSelect = document.getElementById('fromCur');
 const toCurSelect = document.getElementById('toCur');
@@ -157,7 +155,7 @@ function canNotUpdateWarning() {
     }
 }
 // Startup Program
-async function setup() {
+async function setupApp() {
     try {
         // Loads data from localStorage
         const savejson = window.localStorage.getItem(savepoint);
@@ -205,9 +203,9 @@ async function setup() {
         setDefaultUserButton.addEventListener("click", setDefaultUser);
         addNewUserButton.addEventListener("click", addNewUser);
     }
-    catch (_a) {
+    catch {
         window.localStorage.removeItem(savepoint);
-        setup();
+        setupApp();
     }
 }
-setup();
+setupApp();

@@ -172,7 +172,7 @@ function canNotUpdateWarning(): void {
 
 // Startup Program
 
-async function setup(): Promise<void> {
+async function setupApp(): Promise<void> {
     try {
         // Loads data from localStorage
         const savejson = window.localStorage.getItem(savepoint)
@@ -229,11 +229,11 @@ async function setup(): Promise<void> {
         addNewUserButton.addEventListener("click", addNewUser)
     } catch {
         window.localStorage.removeItem(savepoint)
-        setup()
+        setupApp()
     }
 }
 
-setup()
+setupApp()
 
 
 
