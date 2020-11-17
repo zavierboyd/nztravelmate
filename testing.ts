@@ -79,27 +79,29 @@ const baseData: SaveData = {
     }
 }
 
-
+function deepCopySimple<T>(o: T): T {
+    return JSON.parse(JSON.stringify(o))
+}
 
 const assert = chai.assert
 describe('Conversion and Tax', function () {
     describe('Convert', function () {
         it('should convert 1 USD to 2 AED with an exchange rate of USD -> AED of 2', function () {
-            const data = Object.assign({}, baseData)
+            const data = deepCopySimple(baseData)
             data.rates.rates.USD = 1
             data.rates.rates.AED = 2
 
             assert.equal(convert("USD", "AED", 1, data.rates), 2)
         })
         it('should convert 2 AED to 1 USD with an exchange rate of USD -> AED of 2', function () {
-            const data = Object.assign({}, baseData)
+            const data = deepCopySimple(baseData)
             data.rates.rates.USD = 1
             data.rates.rates.AED = 2
 
             assert.equal(convert("AED", "USD", 2, data.rates), 1)
         })
         it('should convert 1 ARS to 4 AED with an exchange rate of USD -> ARS of 0.5 and USD -> AED of 2', function () {
-            const data = Object.assign({}, baseData)
+            const data = deepCopySimple(baseData)
             data.rates.rates.USD = 1
             data.rates.rates.AED = 2
             data.rates.rates.ARS = 0.5
@@ -120,7 +122,7 @@ describe('Conversion and Tax', function () {
     })
     describe('Populate Currency Selects', function () {
         it('should add in all listed currencies', function () {
-            const data = Object.assign({}, baseData)
+            const data = deepCopySimple(baseData)
             const tester = document.createElement("select")
 
             populateCurrencyOptions(tester, data)
@@ -138,8 +140,8 @@ describe('Conversion and Tax', function () {
 describe('User Profiles', function () {
     describe('Update User Settings', function () {
         it('should update the to and from currencies of the user', function () {
-            const data = Object.assign({}, baseData)
-            const testData = Object.assign({}, baseData)
+            const data = deepCopySimple(baseData)
+            const testData = deepCopySimple(baseData)
             updateUserSettings('default', 'NZD', 'USD', testData)
             data.users['default'] = {
                 to: 'NZD',
@@ -151,7 +153,7 @@ describe('User Profiles', function () {
     })
     describe('Get User Settings', function () {
         it(`should get the user's currency settings`, function () {
-            const data = Object.assign({}, baseData)
+            const data = deepCopySimple(baseData)
             data.users['default'] = { to: 'NZD', from: 'USD' }
             assert.deepEqual(getUserSettings('default', data), { to: 'NZD', from: 'USD' })
         })
@@ -174,7 +176,7 @@ describe('User Profiles', function () {
     })
     describe('Update User Select Options', function () {
         it('should add all users not in the select to the bottom of the options', function () {
-            const data = Object.assign({}, baseData)
+            const data = deepCopySimple(baseData)
             data.users = {
                 user1: { to: 'USD', from: 'NZD' },
                 user2: { to: 'USD', from: 'NZD' },
@@ -187,7 +189,7 @@ describe('User Profiles', function () {
             assert.deepEqual(getShownUsers(selectElement), ['user1', 'user2', 'user3'])
         })
         it('should remove all users that no longer exist', function () {
-            const data = Object.assign({}, baseData)
+            const data = deepCopySimple(baseData)
             data.users = {
                 user1: { to: 'USD', from: 'NZD' }
             }
@@ -212,7 +214,7 @@ describe('User Profiles', function () {
             assert.deepEqual(getShownUsers(selectElement), ['user1'])
         })
         it('should add and remove users at the same time', function () {
-            const data = Object.assign({}, baseData)
+            const data = deepCopySimple(baseData)
             data.users = {
                 user1: { to: 'USD', from: 'NZD' },
                 user3: { to: 'USD', from: 'NZD' }
@@ -255,33 +257,48 @@ describe('Math', function () {
 describe('Exchange Rate API', function () {
     describe('Get Exchange Rates', function () {
         it('should get the exchange rates when internet is on OR null when the internet if off', async function () {
-            const data = Object.assign({}, baseData)
+            const data = deepCopySimple(baseData)
             const result = await getRates()
             if (window.navigator.onLine) {
                 assert.notEqual(result, null)
-                assert.hasAllDeepKeys(result, data.rates)
+                assert.containsAllKeys(result, data.rates)
             } else {
                 assert.notEqual(result, null)
+            }
+        })
+        it('should contain exchange rates for NZD, AUD, USD, GBP, EUR, and CAD', async function () {
+            const result = await getRates()
+            if (window.navigator.onLine && result) {
+                assert.exists(result.rates.NZD)
+                assert.exists(result.rates.AUD)
+                assert.exists(result.rates.USD)
+                assert.exists(result.rates.GBP)
+                assert.exists(result.rates.EUR)
+                assert.exists(result.rates.CAD)
             }
         })
     })
     describe('Async Update Conversion Data', function () {
         it('should update the data asyncronosly when internet is on OR leave the data alone if off', async function () {
-            const data = Object.assign({}, baseData)
-            await updateRates(data, () => { data.rates.time_last_update_unix = 1 })
+            const data = deepCopySimple(baseData)
+            data.rates.time_last_update_unix = -1
+            await updateRates(data, () => { data.rates.time_last_update_unix = -1 })
             if (window.navigator.onLine) {
-                assert.hasAllDeepKeys(data.rates, baseData.rates)
+                assert.containsAllKeys(data.rates, baseData.rates)
                 assert.notDeepEqual(data.rates, baseData.rates)
-                assert.notEqual(data.rates.time_last_update_unix, 1)
+                assert.notEqual(data.rates.time_last_update_unix, -1)
+            } else {
+                assert.equal(data.rates.time_last_update_unix, -1)
             }
         })
         it('should run the error function when the internet is off', async function () {
-            const data = Object.assign({}, baseData)
-            await updateRates(data, () => { data.rates.time_last_update_unix = 1 })
+            const data = deepCopySimple(baseData)
+            data.rates.time_last_update_unix = 1
+            await updateRates(data, () => { data.rates.time_last_update_unix = -1 })
             if (window.navigator.onLine) {
-                assert.notEqual(data.rates.time_last_update_unix, 1)
+                assert.notEqual(data.rates.time_last_update_unix, -1)
             } else {
-                assert.equal(data.rates.time_last_update_unix, 1)
+                assert.equal(data.rates.time_last_update_unix, -1)
             }
         })
     })

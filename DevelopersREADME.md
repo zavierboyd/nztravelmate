@@ -36,7 +36,7 @@ describe('Group', function () {
 })
 ```
 
-To use the SaveData object do `const yourVariable = Object.assign({}, baseData)`.
+To use the SaveData object do `const yourVariable = deepCopySimple(baseData)`.
 This data is not correct so for any values you want to use, define them.
 
 To run open testing.html in your browser.
