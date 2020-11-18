@@ -15,6 +15,13 @@ All functions in utilities.ts need to be sorted into the correct group and have 
 
 All functions should be self descriptive, but if there is some part of a function that does not make sense add a comment to explain it.
 
+## API
+
+The current API endpoint is: https://open.exchangerate-api.com/v6/latest.
+Go to https://www.exchangerate-api.com to get to the documentation.
+
+If the endpoint returns a non-zero time_eol_unix then the endpoint needs to be updated before that time. 
+
 ## Testing
 
 For testing we have access to the Mocha and Chai libraries

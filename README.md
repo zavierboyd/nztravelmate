@@ -1,3 +1,6 @@
+# Installation
+Go to https://github.com/zavierboyd/nztravelmate/releases and download the latest release.
+After extracting the files you can use the app.
 # How to use
 
 To use this app open the file converter.html in your web browser
